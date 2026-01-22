@@ -75,9 +75,7 @@ const upload = multer({
 // --- API ROUTER ---
 const apiRouter = express.Router();
 
-// ==========================================
 // NEW ROUTE: ADMIN LOGIN
-// ==========================================
 apiRouter.post('/login', async (req, res) => {
     const { email, password } = req.body;
 
@@ -116,9 +114,7 @@ apiRouter.post('/upload', upload.single('image'), (req, res) => {
     res.json({ message: 'File uploaded successfully', filePath: relativePath });
 });
 
-// ==========================================
 // UPDATED ROUTE: GET PRODUCTS (With Security Clearance)
-// ==========================================
 apiRouter.get('/products', async (req, res) => {
     try {
         const { category, userLevel } = req.query;
@@ -162,9 +158,7 @@ apiRouter.get('/products', async (req, res) => {
     }
 });
 
-// ==========================================
 // UPDATED ROUTE: GET SINGLE PRODUCT (With Security Clearance)
-// ==========================================
 apiRouter.get('/products/:id', async (req, res) => {
     try {
         const { userLevel } = req.query;
