@@ -116,21 +116,34 @@ apiRouter.post('/upload', upload.single('image'), (req, res) => {
     res.json({ message: 'File uploaded successfully', filePath: relativePath });
 });
 
-// 1. GET /api/products
+// ==========================================
+// UPDATED ROUTE: GET PRODUCTS (With Security Clearance)
+// ==========================================
 apiRouter.get('/products', async (req, res) => {
     try {
-        const { category } = req.query;
+        const { category, userLevel } = req.query;
+        
+        // DEFAULT: If no level is provided, assume Level 1 (Civilian)
+        const currentUserLevel = userLevel ? parseInt(userLevel) : 1; 
+
+        // We now JOIN clearance_levels to get the level name
+        // We add WHERE p.clearance_id <= ? to filter out classified items
         let query = `
-            SELECT p.*, c.name AS category
+            SELECT p.*, c.name AS category, cl.level_name
             FROM products p
             JOIN categories c ON p.category_id = c.id
+            JOIN clearance_levels cl ON p.clearance_id = cl.id
+            WHERE p.clearance_id <= ?
         `;
         
-        const params = [];
+        const params = [currentUserLevel];
+
+        // Add Category Filter if requested
         if (category && category.toLowerCase() !== 'all') {
-            query += ` WHERE LOWER(c.name) = LOWER(?)`;
+            query += ` AND LOWER(c.name) = LOWER(?)`;
             params.push(category);
         }
+        
         query += ` ORDER BY p.id ASC`;
         
         const [rows] = await promisePool.execute(query, params);
@@ -149,17 +162,27 @@ apiRouter.get('/products', async (req, res) => {
     }
 });
 
-// 2. GET /api/products/:id
+// ==========================================
+// UPDATED ROUTE: GET SINGLE PRODUCT (With Security Clearance)
+// ==========================================
 apiRouter.get('/products/:id', async (req, res) => {
     try {
+        const { userLevel } = req.query;
+        const currentUserLevel = userLevel ? parseInt(userLevel) : 1;
+
+        // Check if product exists AND if user has clearance
         const query = `
-            SELECT p.*, c.name AS category
+            SELECT p.*, c.name AS category, cl.level_name
             FROM products p
             JOIN categories c ON p.category_id = c.id
-            WHERE p.id = ?
+            JOIN clearance_levels cl ON p.clearance_id = cl.id
+            WHERE p.id = ? AND p.clearance_id <= ?
         `;
-        const [rows] = await promisePool.execute(query, [req.params.id]);
-        if (rows.length === 0) return res.status(404).json({ error: 'Not found' });
+        
+        const [rows] = await promisePool.execute(query, [req.params.id, currentUserLevel]);
+        
+        // If row is empty, it means either ID doesn't exist OR user level is too low
+        if (rows.length === 0) return res.status(404).json({ error: 'Product not found or access denied' });
 
         const product = {
             ...rows[0],
